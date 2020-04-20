@@ -7,11 +7,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/go-logr/logr"
 	"github.com/projectsyn/lieutenant-operator/pkg/apis"
 
 	"github.com/stretchr/testify/assert"
 
 	synv1alpha1 "github.com/projectsyn/lieutenant-operator/pkg/apis/syn/v1alpha1"
+	"github.com/projectsyn/lieutenant-operator/pkg/vault"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -85,6 +87,17 @@ func TestReconcileCluster_Reconcile(t *testing.T) {
 						GitRepoTemplate: &synv1alpha1.GitRepoTemplate{},
 					},
 				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "somesecret",
+						Annotations: map[string]string{
+							corev1.ServiceAccountNameKey: tt.fields.objName,
+						},
+					},
+					Data: map[string][]byte{
+						"token": []byte("mysecret"),
+					},
+				},
 			}
 
 			cl, s := testSetupClient(objs)
@@ -97,6 +110,8 @@ func TestReconcileCluster_Reconcile(t *testing.T) {
 					Namespace: tt.fields.objNamespace,
 				},
 			}
+
+			vault.SetCustomClient(&TestMockClient{})
 
 			got, err := r.Reconcile(req)
 			if (err != nil) != tt.wantErr {
@@ -148,3 +163,7 @@ func TestReconcileCluster_Reconcile(t *testing.T) {
 		})
 	}
 }
+
+type TestMockClient struct{}
+
+func (m *TestMockClient) SetToken(secretPath, token string, log logr.Logger) error { return nil }
