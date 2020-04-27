@@ -82,18 +82,25 @@ func (b *BankVaultClient) SetToken(secretPath, token string, log logr.Logger) er
 		return err
 	}
 
-	if secret == nil || secret.Data[tokenName] != token {
+	if secret == nil {
+		log.WithName("vault").Info("does not yet exist, creating", "name", secretPath)
+		secret = &api.Secret{}
+		secret.Data = vault.NewData(0, map[string]interface{}{
+			tokenName: token,
+		})
+		_, err = b.client.RawClient().Logical().Write(queryPath, secret.Data)
+		return err
+	}
+
+	secretData := secret.Data["data"].(map[string]interface{})
+
+	if secretData[tokenName] != token {
 
 		log.WithName("vault").Info("secrets don't match, re-applying")
 
-		data := map[string]interface{}{
-			"data": map[string]interface{}{
-				tokenName: token,
-			},
-		}
+		secretData[tokenName] = token
 
-		_, err = b.client.RawClient().Logical().Write(queryPath, data)
-
+		_, err = b.client.RawClient().Logical().Write(queryPath, secret.Data)
 	}
 
 	return err
