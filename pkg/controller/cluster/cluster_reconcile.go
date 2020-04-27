@@ -75,10 +75,12 @@ func (r *ReconcileCluster) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	token, err := r.getServiceAccountToken(instance)
 	if err != nil {
-		return reconcile.Result{}, err
+		if err.Error() != "no token available yet" {
+			return reconcile.Result{}, err
+		}
 	}
 
-	err = client.SetToken(path.Join(instance.Spec.TenantRef.Name, instance.Name), token, reqLogger)
+	err = client.SetToken(path.Join(instance.Spec.TenantRef.Name, instance.Name, "steward"), token, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -175,7 +177,15 @@ func (r *ReconcileCluster) getServiceAccountToken(instance *synv1alpha1.Cluster)
 	sort.Sort(sort.Reverse(sortSecrets))
 
 	for _, secret := range sortSecrets.Items {
+
+		if secret.Type != corev1.SecretTypeServiceAccountToken {
+			continue
+		}
+
 		if secret.Annotations[corev1.ServiceAccountNameKey] == instance.Name {
+			if string(secret.Data["token"]) == "" {
+				return "", fmt.Errorf("no token available yet")
+			}
 			return string(secret.Data["token"]), nil
 		}
 	}

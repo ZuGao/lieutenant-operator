@@ -10,10 +10,8 @@ import (
 )
 
 const (
-	tokenName    = "steward token"
+	tokenName    = "token"
 	k8sTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	tokenEnvVar  = "VAULT_TOKEN"
-	vaultEnvVar  = "VAULT_URL"
 )
 
 var (
@@ -46,7 +44,7 @@ func NewClient() (VaultClient, error) {
 	}
 
 	rawClient, err := api.NewClient(&api.Config{
-		Address: os.Getenv(vaultEnvVar),
+		Address: os.Getenv(api.EnvVaultAddress),
 	})
 	if err != nil {
 		return nil, err
@@ -54,7 +52,7 @@ func NewClient() (VaultClient, error) {
 
 	// if we're not in a k8s pod we'll use provided TOKEN env var
 	if _, err = os.Stat(k8sTokenPath); os.IsNotExist(err) {
-		rawClient.SetToken(os.Getenv(tokenEnvVar))
+		rawClient.SetToken(os.Getenv(api.EnvVaultToken))
 	}
 
 	client, err := vault.NewClientFromRawClient(rawClient, vault.ClientRole("lieutenant-operator"))
